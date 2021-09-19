@@ -1,0 +1,73 @@
+Func _Notify_Locate($iLocation)
+
+    ; Can only reset notification location when no notifications are displayed
+    If $aNotify_Data[0][0] Then
+        Return SetError(1, 0, 0)
+    EndIf
+
+    ; Check valid parameter
+    Switch $iLocation
+        Case 0 To 3
+            $aNotify_Data[0][4] = $iLocation
+        Case Else
+            Return SetError(2, 0, 0)
+    EndSwitch
+
+    Local $tWorkArea
+    ; Determine which struct syntax to use to use
+    If @AutoItVersion < "3.3.8.0" Then
+        $tWorkArea = DllStructCreate("long Left;long Top;long Right;long Bottom")
+    Else
+        $tWorkArea = DllStructCreate("struct;long Left;long Top;long Right;long Bottom;endstruct")
+    EndIf
+    ; Check if Taskbar is hidden
+    Local $aRet = DllCall("shell32.dll", "uint", "SHAppBarMessage", "dword", 0x00000004, "ptr*", 0) ; $ABM_GETSTATE
+    If BitAND($aRet[0], 0x01) Then
+
+        ; Set max number available
+        $aNotify_Data[0][1] = Int((@DesktopHeight - 60) / 50)
+
+        ; Adjust data array depending on required location
+        Switch $iLocation
+            Case 0 ; From bottom right
+                $aNotify_Data[0][3] = @DesktopHeight - 10 ; bottom Y
+                $aNotify_Data[0][2] = @DesktopWidth - 10  ; right X
+            Case 1 ; From top right
+                $aNotify_Data[0][3] = 10                  ; top Y
+                $aNotify_Data[0][2] = @DesktopWidth - 10  ; right X
+            Case 2 ; From top left
+                $aNotify_Data[0][3] = 10                  ; top Y
+                $aNotify_Data[0][2] = 10                  ; left X
+            Case 3 ; From bottom left
+                $aNotify_Data[0][3] = @DesktopHeight - 10 ; bottom Y
+                $aNotify_Data[0][2] = 10                  ; left X
+        EndSwitch
+
+    Else
+
+        ; Determine available work area ; $SPI_GETWORKAREA = 48
+        DllCall("user32.dll", "bool", "SystemParametersInfoW", "uint", 48, "uint", 0, "ptr", DllStructGetPtr($tWorkArea), "uint", 0)
+        If @error Then Return SetError(2, 0, -1)
+        Local $aWorkArea[4] = [DllStructGetData($tWorkArea, "Left"), DllStructGetData($tWorkArea, "Top"), _
+            DllStructGetData($tWorkArea, "Right"), DllStructGetData($tWorkArea, "Bottom")]
+
+        ; Set max number available
+        $aNotify_Data[0][1] = Int(($aWorkArea[3] - $aWorkArea[1] - 60) / 50)
+
+        ; Adjust data array depending on required location
+        Switch $iLocation
+            Case 0 ; From bottom right
+                $aNotify_Data[0][3] = $aWorkArea[3] - 10 ; bottom Y
+                $aNotify_Data[0][2] = $aWorkArea[2] - 10 ; right X
+            Case 1 ; From top right
+                $aNotify_Data[0][3] = $aWorkArea[1] + 10 ; top Y
+                $aNotify_Data[0][2] = $aWorkArea[2] - 10 ; right X
+            Case 2 ; From top left
+                $aNotify_Data[0][3] = $aWorkArea[1] + 10 ; top Y
+                $aNotify_Data[0][2] = $aWorkArea[0] + 10 ; left X
+            Case 3 ; From bottom left
+                $aNotify_Data[0][3] = $aWorkArea[3] - 10 ; bottom Y
+                $aNotify_Data[0][2] = $aWorkArea[0] + 10 ; left X
+        EndSwitch
+
+    EndIf
